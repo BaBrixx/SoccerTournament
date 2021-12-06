@@ -8,7 +8,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "string.h"
+#include <string.h>
+#include <assert.h>
 
 /* Definitions */
 #define FILE_PATH "kampe-2020-2021.txt"
@@ -34,27 +35,31 @@ struct {
     unsigned short goalsAgainst;
 } typedef Team;
 
-void readFile (Match *loadedMatches, char *filePath);
+void readFile (Match **loadedMatches, int *loadedMatchesLen, Team **loadedTeams, int *loadedTeamsLen, char *filePath);
+int getTeamIndex (char teamName[], Team **loadedTeams, int *loadedTeamsLen);
 void sanitize (char* string);
 
 /* Main function */
 int main(void) {
-    Match *loadedMatches;
+    Match *loadedMatches = NULL;
+    int loadedMatchesLen = 0;
+    Team *loadedTeams = NULL;
+    int loadedTeamsLen = 0;
 
-    readFile(loadedMatches, FILE_PATH);
+    readFile(&loadedMatches, &loadedMatchesLen, &loadedTeams, &loadedTeamsLen, FILE_PATH);
     
-    
+    free(loadedMatches);
+    free(loadedTeams);
+
     return EXIT_SUCCESS;
 }
 
 /* Function for reading a given file */
-void readFile (Match *loadedMatches, char *filePath) {
+void readFile (Match **loadedMatches, int *loadedMatchesLen, Team **loadedTeams, int *loadedTeamsLen, char *filePath) {
+    /* Creating variables */
     FILE *fp;
 
-    /* Opening and checking whether the file loaded successfully */
-    fp = fopen(filePath, "r");
-    if (fp == NULL) exit(EXIT_FAILURE);
-
+    /* Creating temporary variables */
     char tempWeekDay[MAX_WEEKDAY_SIZE];
     char tempDate[MAX_DATE_SIZE];
     char tempTime[MAX_TIME_SIZE];
@@ -63,19 +68,61 @@ void readFile (Match *loadedMatches, char *filePath) {
     int tempHomeTeamGoals = 0;
     int tempOtherTeamGoals = 0;
     int tempSpectators = 0;
+    Team *teamHome = NULL;
+    Team *teamOther = NULL;
 
-    /*fscanf(fp, "%3s %5s %5s %s - %3s %hu - %hu %u", tempWeekDay, tempDate, tempTime, tempHomeTeam, tempOtherTeam, &tempHomeTeamGoals, &tempOtherTeamGoals, &tempSpectators)*/ 
+    /* Opening and checking whether the file loaded successfully */
+    fp = fopen(filePath, "r");
+    if (fp == NULL) exit(EXIT_FAILURE);
 
+    /* Allocating memory for the first match and team*/
+    *loadedMatches = (Match *) malloc(sizeof(Match));
+    *loadedTeams = (Team *) malloc(sizeof(Team));
+
+    /* While loop running through the file line by line to load the data */
     while (fscanf(fp, " %s %s %s %s - %s %d - %d %d", tempWeekDay, tempDate, tempTime, tempHomeTeam, tempOtherTeam, &tempHomeTeamGoals, &tempOtherTeamGoals, &tempSpectators) == 8) {
+        printf("%d ", *loadedTeamsLen);
+        int teamHomeIndex = getTeamIndex(tempHomeTeam, *loadedTeams, loadedTeamsLen);
+        printf("%d ", *loadedTeamsLen);
+        int teamOtherIndex = getTeamIndex(tempOtherTeam, *loadedTeams, loadedTeamsLen);
+        printf("%d\n", *loadedTeamsLen);
 
-        printf("Day: %s Date: %s Time: %s Team: %s Team2: %s Goals: %d Goals2 %d Seere: %d\n", tempWeekDay,
-                                                       tempDate, tempTime, 
-                                                       tempHomeTeam, tempOtherTeam, 
-                                                       tempHomeTeamGoals, tempOtherTeamGoals, 
-                                                       tempSpectators);
+        printf("Team 1 index: %d, Team 2 index: %d\n Team len: %d\n", teamHomeIndex, teamOtherIndex, *loadedTeamsLen);
 
     }
+
+    /* Closing the file */
     fclose(fp);
+}
+
+/* Function for getting the index of the specific team. Creating it if it was not found. */
+int getTeamIndex (char teamName[], Team **loadedTeams, int *loadedTeamsLen) {
+    for (int i = 0; i < *loadedTeamsLen; i++) {
+        if (strcmp(teamName, loadedTeams[i]->name) == 0) {
+            return i;
+        }
+    }
+    
+    /* Creating the specific team */
+    printf("*loadedTeamsLen += 1\n");
+    *loadedTeamsLen += 1;
+    printf("Reallocating memory...\n");
+    *loadedTeams = (Team *) realloc(*loadedTeams, *loadedTeamsLen * sizeof(Team));
+    if (loadedTeams == NULL) {
+        printf("Reallocating memory failed. Ending program.");
+        exit(0);
+    }
+
+
+    /* Setting the values */
+    printf("%s, %d\n", teamName, *loadedTeamsLen);
+    strcpy((*loadedTeams)[*loadedTeamsLen - 1].name, teamName);
+    loadedTeams[*loadedTeamsLen - 1]->points = (unsigned short) 0;
+    loadedTeams[*loadedTeamsLen - 1]->goalsBy = (unsigned short) 0;
+    loadedTeams[*loadedTeamsLen - 1]->goalsAgainst = (unsigned short) 0;
+
+    /* Returning the index of the newly created team */
+    return *loadedTeamsLen - 1;
 }
 
 /**
