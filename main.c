@@ -25,6 +25,8 @@ struct {
     char time[MAX_TIME_SIZE];
     char teamHome[MAX_TEAM_NAME_LENGTH];
     char teamOther[MAX_TEAM_NAME_LENGTH];
+    unsigned short goalsHome;
+    unsigned short goalsOther;
     unsigned int spectators;
 } typedef Match;
 
@@ -32,20 +34,23 @@ struct {
     char name[MAX_TEAM_NAME_LENGTH];
     unsigned short points;
     unsigned short goalsBy;
-    unsigned short goalsAgainst;
+    unsigned short goalsConceded;
 } typedef Team;
 
+/* Predeclaring functions */
 void readFile (Match **loadedMatches, int *loadedMatchesLen, Team **loadedTeams, int *loadedTeamsLen, char *filePath);
 int getTeamIndex (char teamName[], Team **loadedTeams, int *loadedTeamsLen);
-void sanitize (char* string);
+int compareFunction (const void *teamA, const void *teamB);
 
 /* Main function */
 int main(void) {
+    /* Declaring the arrays and length variables*/
     Match *loadedMatches = NULL;
     int loadedMatchesLen = 0;
     Team *loadedTeams = NULL;
     int loadedTeamsLen = 0;
 
+    /*  */
     readFile(&loadedMatches, &loadedMatchesLen, &loadedTeams, &loadedTeamsLen, FILE_PATH);
     
     free(loadedMatches);
@@ -65,9 +70,9 @@ void readFile (Match **loadedMatches, int *loadedMatchesLen, Team **loadedTeams,
     char tempTime[MAX_TIME_SIZE];
     char tempHomeTeam[MAX_TEAM_NAME_LENGTH];
     char tempOtherTeam[MAX_TEAM_NAME_LENGTH];
-    int tempHomeTeamGoals = 0;
-    int tempOtherTeamGoals = 0;
-    int tempSpectators = 0;
+    unsigned short tempHomeTeamGoals = 0;
+    unsigned short tempOtherTeamGoals = 0;
+    unsigned short tempSpectators = 0;
     Team *teamHome = NULL;
     Team *teamOther = NULL;
 
@@ -79,16 +84,53 @@ void readFile (Match **loadedMatches, int *loadedMatchesLen, Team **loadedTeams,
     *loadedMatches = (Match *) malloc(sizeof(Match));
     *loadedTeams = (Team *) malloc(sizeof(Team));
 
+    if (loadedMatches == NULL || loadedTeams == NULL) {
+        printf("Allocating memory failed. Ending program.");
+        exit(0);
+    }
+
     /* While loop running through the file line by line to load the data */
-    while (fscanf(fp, " %s %s %s %s - %s %d - %d %d", tempWeekDay, tempDate, tempTime, tempHomeTeam, tempOtherTeam, &tempHomeTeamGoals, &tempOtherTeamGoals, &tempSpectators) == 8) {
-        printf("%d ", *loadedTeamsLen);
-        int teamHomeIndex = getTeamIndex(tempHomeTeam, *loadedTeams, loadedTeamsLen);
-        printf("%d ", *loadedTeamsLen);
-        int teamOtherIndex = getTeamIndex(tempOtherTeam, *loadedTeams, loadedTeamsLen);
-        printf("%d\n", *loadedTeamsLen);
+    while (fscanf(fp, " %s %s %s %s - %s %hu - %hu %hu", tempWeekDay, tempDate, tempTime, tempHomeTeam, tempOtherTeam, &tempHomeTeamGoals, &tempOtherTeamGoals, &tempSpectators) == 8) {
+        int teamHomeIndex = getTeamIndex(tempHomeTeam, loadedTeams, loadedTeamsLen);
+        int teamOtherIndex = getTeamIndex(tempOtherTeam, loadedTeams, loadedTeamsLen);
 
-        printf("Team 1 index: %d, Team 2 index: %d\n Team len: %d\n", teamHomeIndex, teamOtherIndex, *loadedTeamsLen);
+        /* Creating the match for the array */
+        *loadedMatchesLen += 1;
+        *loadedMatches = (Match *) realloc(*loadedMatches, *loadedMatchesLen * sizeof(Match));
+        strcpy((*loadedMatches)[*loadedMatchesLen - 1].weekday, tempWeekDay);
+        strcpy((*loadedMatches)[*loadedMatchesLen - 1].date, tempDate);
+        strcpy((*loadedMatches)[*loadedMatchesLen - 1].time, tempTime);
+        strcpy((*loadedMatches)[*loadedMatchesLen - 1].teamHome, tempHomeTeam);
+        strcpy((*loadedMatches)[*loadedMatchesLen - 1].teamOther, tempOtherTeam);
+        (*loadedMatches)[*loadedMatchesLen - 1].goalsHome = (unsigned short) tempHomeTeamGoals;
+        (*loadedMatches)[*loadedMatchesLen - 1].goalsOther = (unsigned short) tempOtherTeamGoals;
+        (*loadedMatches)[*loadedMatchesLen - 1].spectators = (unsigned short) tempSpectators;
 
+        /* Adding points to the teams */
+        if (tempHomeTeamGoals == tempOtherTeamGoals) {
+            (*loadedTeams)[teamHomeIndex].points += (unsigned short) 1;
+            (*loadedTeams)[teamOtherIndex].points += (unsigned short) 1;
+        }
+        else if (tempHomeTeamGoals > tempOtherTeamGoals) {
+            (*loadedTeams)[teamHomeIndex].points += (unsigned short) 3;
+        }
+        else {
+            (*loadedTeams)[teamOtherIndex].points += (unsigned short) 3;
+        }
+        
+        /* Adding goals stats */
+        (*loadedTeams)[teamHomeIndex].goalsBy += tempHomeTeamGoals;
+        (*loadedTeams)[teamHomeIndex].goalsConceded += tempOtherTeamGoals;
+
+        (*loadedTeams)[teamOtherIndex].goalsBy += tempOtherTeamGoals;
+        (*loadedTeams)[teamOtherIndex].goalsConceded += tempHomeTeamGoals;
+    }
+
+    /* Sorting the team array by points and goals using qsort */
+    qsort(*loadedTeams, *loadedTeamsLen, sizeof(Team), compareFunction);
+
+    for (int i = 0; i < *loadedTeamsLen; i++) {
+        printf("Name: %s, Points: %hu, Goals diff: %d\n", (*loadedTeams)[i].name, (*loadedTeams)[i].points, (int) (*loadedTeams)[i].goalsBy - (*loadedTeams)[i].goalsConceded);
     }
 
     /* Closing the file */
@@ -97,51 +139,48 @@ void readFile (Match **loadedMatches, int *loadedMatchesLen, Team **loadedTeams,
 
 /* Function for getting the index of the specific team. Creating it if it was not found. */
 int getTeamIndex (char teamName[], Team **loadedTeams, int *loadedTeamsLen) {
-    for (int i = 0; i < *loadedTeamsLen; i++) {
-        if (strcmp(teamName, loadedTeams[i]->name) == 0) {
-            return i;
+    int teamIndex = -1;
+    int currTeam = 0;
+
+    while (currTeam < *loadedTeamsLen && teamIndex == -1) {
+        if (strcmp(teamName, (*loadedTeams)[currTeam].name) == 0) {
+            teamIndex = currTeam;
         }
-    }
-    
-    /* Creating the specific team */
-    printf("*loadedTeamsLen += 1\n");
-    *loadedTeamsLen += 1;
-    printf("Reallocating memory...\n");
-    *loadedTeams = (Team *) realloc(*loadedTeams, *loadedTeamsLen * sizeof(Team));
-    if (loadedTeams == NULL) {
-        printf("Reallocating memory failed. Ending program.");
-        exit(0);
+        currTeam++;
     }
 
+    /* Creating the specific team if it doesnt exist yet */
+    if (teamIndex == -1) {
+        *loadedTeamsLen += 1;
+        *loadedTeams = (Team *) realloc(*loadedTeams, *loadedTeamsLen * sizeof(Team));
+        if (loadedTeams == NULL) {
+            printf("Reallocating memory failed. Ending program.");
+            exit(0);
+        }
 
-    /* Setting the values */
-    printf("%s, %d\n", teamName, *loadedTeamsLen);
-    strcpy((*loadedTeams)[*loadedTeamsLen - 1].name, teamName);
-    loadedTeams[*loadedTeamsLen - 1]->points = (unsigned short) 0;
-    loadedTeams[*loadedTeamsLen - 1]->goalsBy = (unsigned short) 0;
-    loadedTeams[*loadedTeamsLen - 1]->goalsAgainst = (unsigned short) 0;
+        /* Setting the values */
+        strcpy((*loadedTeams)[*loadedTeamsLen - 1].name, teamName);
+        (*loadedTeams)[*loadedTeamsLen - 1].points = (unsigned short) 0;
+        (*loadedTeams)[*loadedTeamsLen - 1].goalsBy = (unsigned short) 0;
+        (*loadedTeams)[*loadedTeamsLen - 1].goalsConceded = (unsigned short) 0;
 
-    /* Returning the index of the newly created team */
-    return *loadedTeamsLen - 1;
+        teamIndex = *loadedTeamsLen - 1;
+    }
+
+    /* Returning the index of the team */
+    return teamIndex;
 }
 
-/**
- * @brief A function to sanitize a string
- *
- * This function removes characters that some systems cant handle.
- * The function takes a string and makes the changes directly on the string.
- *
- * @param string
- */
-void sanitize(char* string){
-    // Remove the newline at the end of the string, otherwise it could for example be interpreted as a delimiter for an extra category
-    string[strcspn(string, "\n")] = '\0';
+/* qsort compare function to determine wich team has better results*/
+int compareFunction (const void *teamA, const void *teamB) {
+    const Team *tempTeamA = (Team *) teamA;
+    const Team *tempTeamB = (Team *) teamB;
 
-    // If we have a char 13 in the string, make it a end of string character.
-    // This is a problem on Windows when using WSL.
-    int i = 0;
-    while(string[i] != '\0'){
-        if (string[i] == (char) 13) string[i] = '\0';
-        i++;
+    int tempPointDiff = tempTeamB->points - tempTeamA->points;
+
+    if (tempPointDiff == 0) {
+        tempPointDiff = (tempTeamB->goalsBy - tempTeamB->goalsConceded) - (tempTeamA->goalsBy - tempTeamA->goalsConceded);
     }
+
+    return tempPointDiff;
 }
