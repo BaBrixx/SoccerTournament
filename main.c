@@ -18,7 +18,7 @@
 #define MAX_TIME_SIZE 6
 #define MAX_TEAM_NAME_LENGTH 4
 
-/* Structs for storing data about the matches and teams*/
+/* Structs for storing data about the matches and teams */
 struct {
     char weekday[MAX_WEEKDAY_SIZE];
     char date[MAX_DATE_SIZE];
@@ -40,19 +40,22 @@ struct {
 /* Predeclaring functions */
 void readFile (Match **loadedMatches, int *loadedMatchesLen, Team **loadedTeams, int *loadedTeamsLen, char *filePath);
 int getTeamIndex (char teamName[], Team **loadedTeams, int *loadedTeamsLen);
+void printTeams(Team **loadedTeams, int *loadedTeamsLen);
 int compareFunction (const void *teamA, const void *teamB);
 
 /* Main function */
 int main(void) {
-    /* Declaring the arrays and length variables*/
+    /* Declaring the arrays and length variables */
     Match *loadedMatches = NULL;
     int loadedMatchesLen = 0;
     Team *loadedTeams = NULL;
     int loadedTeamsLen = 0;
 
-    /*  */
+    /* Using the readFile function to load the results */
     readFile(&loadedMatches, &loadedMatchesLen, &loadedTeams, &loadedTeamsLen, FILE_PATH);
     
+    printTeams(&loadedTeams, &loadedTeamsLen);
+
     free(loadedMatches);
     free(loadedTeams);
 
@@ -80,7 +83,7 @@ void readFile (Match **loadedMatches, int *loadedMatchesLen, Team **loadedTeams,
     fp = fopen(filePath, "r");
     if (fp == NULL) exit(EXIT_FAILURE);
 
-    /* Allocating memory for the first match and team*/
+    /* Allocating memory for the first match and team */
     *loadedMatches = (Match *) malloc(sizeof(Match));
     *loadedTeams = (Team *) malloc(sizeof(Team));
 
@@ -129,10 +132,6 @@ void readFile (Match **loadedMatches, int *loadedMatchesLen, Team **loadedTeams,
     /* Sorting the team array by points and goals using qsort */
     qsort(*loadedTeams, *loadedTeamsLen, sizeof(Team), compareFunction);
 
-    for (int i = 0; i < *loadedTeamsLen; i++) {
-        printf("Name: %s, Points: %hu, Goals diff: %d\n", (*loadedTeams)[i].name, (*loadedTeams)[i].points, (int) (*loadedTeams)[i].goalsBy - (*loadedTeams)[i].goalsConceded);
-    }
-
     /* Closing the file */
     fclose(fp);
 }
@@ -169,6 +168,18 @@ int getTeamIndex (char teamName[], Team **loadedTeams, int *loadedTeamsLen) {
 
     /* Returning the index of the team */
     return teamIndex;
+}
+
+/* This function takes the teams array and formats it in a user-friendly way */
+void printTeams(Team **loadedTeams, int *loadedTeamsLen) {
+    printf("|-----------------------------------------------------|\n");
+    printf("| Nr | Team | Points | Goals scored | Goals conceeded |\n");
+    printf("|-----------------------------------------------------|\n");
+    
+    for (int i = 0; i < *loadedTeamsLen; i++) {
+        printf("| %2d | %4s | %6hu | %12hu | %15hu |\n", i + 1, (*loadedTeams)[i].name, (*loadedTeams)[i].points, (*loadedTeams)[i].goalsBy, (*loadedTeams)[i].goalsConceded);
+    }
+    printf("|-----------------------------------------------------|\n");
 }
 
 /* qsort compare function to determine wich team has better results*/
