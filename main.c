@@ -62,7 +62,21 @@ int main(void) {
     return EXIT_SUCCESS;
 }
 
-/* Function for reading a given file */
+/**
+ * @brief This function reads and loads the data from a spefific file
+ *
+ * This function is used in the beginning of the main function to load the matches and teams from the FILE_PATH.
+ * The function takes two pointers to the loadedMatches and loadedTeams arrays.
+ * The function also takes two integer pointers to the length of the two arrays.
+ * The last parameter takes a pointer to the file path
+ * 
+ * @param **loadedMatches
+ * @param *loadedMatchesLen
+ * @param **loadedTeams
+ * @param *loadedTeamsLen
+ * @param *filePath
+ * @return void
+ */
 void readFile (Match **loadedMatches, int *loadedMatchesLen, Team **loadedTeams, int *loadedTeamsLen, char *filePath) {
     /* Creating variables */
     FILE *fp;
@@ -136,7 +150,18 @@ void readFile (Match **loadedMatches, int *loadedMatchesLen, Team **loadedTeams,
     fclose(fp);
 }
 
-/* Function for getting the index of the specific team. Creating it if it was not found. */
+/**
+ * @brief Function for getting the index of the specific team. Creating it if it was not found.
+ *
+ * This function is used in the readFile function to get the index of the specific team in the loadedTeams array.
+ * The function takes an array of the team name, a pointer to the loadedTeams array and a pointer to the loadedTeamsLen integer.
+ * The function returns an integer in the form of the index of the specific team in the loadedTeams array.
+ * 
+ * @param teamName[]
+ * @param **loadedTeams
+ * @param *loadedTeamsLen
+ * @return int
+ */
 int getTeamIndex (char teamName[], Team **loadedTeams, int *loadedTeamsLen) {
     int teamIndex = -1;
     int currTeam = 0;
@@ -170,7 +195,16 @@ int getTeamIndex (char teamName[], Team **loadedTeams, int *loadedTeamsLen) {
     return teamIndex;
 }
 
-/* This function takes the teams array and formats it in a user-friendly way */
+/**
+ * @brief This function prints the teamsArray and formats it in a userfriendly way
+ *
+ * The function takes a pointer to the loadedTeams array and a pointer to the loadedTeamsLen integer.
+ * 
+ * @param teamName[]
+ * @param **loadedTeams
+ * @param *loadedTeamsLen
+ * @return int
+ */
 void printTeams(Team **loadedTeams, int *loadedTeamsLen) {
     printf("|-----------------------------------------------------|\n");
     printf("| Nr | Team | Points | Goals scored | Goals conceeded |\n");
@@ -182,7 +216,15 @@ void printTeams(Team **loadedTeams, int *loadedTeamsLen) {
     printf("|-----------------------------------------------------|\n");
 }
 
-/* qsort compare function to determine wich team has better results*/
+/**
+ * @brief qsort compare function to determine wich team has better results
+ *
+ * The function takes a pointer to the two teams that should be compared.
+ * 
+ * @param *teamA
+ * @param *teamB
+ * @return int
+ */
 int compareFunction (const void *teamA, const void *teamB) {
     const Team *tempTeamA = (Team *) teamA;
     const Team *tempTeamB = (Team *) teamB;
